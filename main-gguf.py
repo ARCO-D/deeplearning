@@ -11,14 +11,15 @@ system_prompt = {
 
 ## global settings
 # model_path = "/home/kirin7/hf/DeepSeek-R1-Distill-Llama-70B-GGUF/DeepSeek-R1-Distill-Llama-70B-Q4_K_M.gguf"
-model_path = "/home/kirin7/hf/DeepSeek-R1-Distill-Qwen-32B-GGUF/DeepSeek-R1-Distill-Qwen-32B-Q4_K_M.gguf"
+model_path = "/home/kirin7/hf/DeepSeek-R1-Distill-Llama-70B-GGUF/DeepSeek-R1-Distill-Llama-70B-IQ4_XS.gguf"
+# model_path = "/home/kirin7/hf/DeepSeek-R1-Distill-Qwen-32B-GGUF/DeepSeek-R1-Distill-Qwen-32B-Q4_K_M.gguf"
 # model_path = "/home/kirin7/hf/DeepSeek-R1-Distill-Qwen-14B-GGUF/DeepSeek-R1-Distill-Qwen-14B-Q4_K_M.gguf"
 # model_path = "/media/arco/D292655192653ADD/DeepSeek-R1-Distill-Llama-8B-GGUF/DeepSeek-R1-Distill-Llama-8B-Q4_K_M.gguf"
-max_history_length = 20 # 保存的历史记录数量
 context_length = 10240 # 最大上下文长度
 max_tokens = 1024 # AI一次最多生成的tokens
 gpu_layers = 42 # 没GPU就填0
 threads = 16 # 贴近逻辑核数
+
 
 ## functions
 def help_prompt():
@@ -46,7 +47,7 @@ def set_system_prompt():
     print("需要设置系统提示词吗 (y/n/help)  ", end="")
     str = input()
     if str == 'y':
-        system_prompt["role"] = input("请输入提示词: ")
+        system_prompt["content"] = input("请输入提示词: ")
     elif str == "help":
         help_prompt()
         set_system_prompt()
@@ -84,6 +85,7 @@ def chat():
     # local settings
     history = []
     full_response = False
+    extra_prompt = "<think>\n"
 
     while True:
         user_input = input("user:")
@@ -106,7 +108,7 @@ def chat():
             messages.append(msg)
 
         # 手动构建上下文(增加<think>触发强制思考
-        context = "\n".join([f"{msg['role']}: {msg['content']}" for msg in messages]) + "\nassistant:<think>"
+        context = "\n".join([f"{msg['role']}: {msg['content']}" for msg in messages]) + f"\nassistant:{extra_prompt}"
 
         # 调用处理回复的函数
         expect_response = deal_response(context, full_response)
@@ -120,8 +122,7 @@ def chat():
         history.append(ai_msg_str)
 
         # 控制对话历史长度，避免过长
-        if len(history) > max_history_length:
-            history = history[-max_history_length:]
+        # 通过history + token < content_length判断，暂未实现
 
 
 if __name__ == "__main__":
