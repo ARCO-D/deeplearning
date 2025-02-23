@@ -4,10 +4,13 @@ import json
 
 ## global variable
 llm = None
+default_sys_prompt = "你是一位AI助手"
 system_prompt = {
     "role": "system",
-    "content": "你是一位AI助手"
+    "content":{default_sys_prompt}
 }
+user_role = "user"
+AI_role = "assistant"
 
 ## global settings
 # model_path = "/home/kirin7/hf/DeepSeek-R1-Distill-Llama-70B-GGUF/DeepSeek-R1-Distill-Llama-70B-Q4_K_M.gguf"
@@ -18,13 +21,12 @@ model_path = "/home/kirin7/hf/DeepSeek-R1-Distill-Llama-70B-GGUF/DeepSeek-R1-Dis
 context_length = 10240 # 最大上下文长度
 max_tokens = 1024 # AI一次最多生成的tokens
 gpu_layers = 42 # 没GPU就填0
-threads = 16 # 贴近逻辑核数
-
+threads = 8 # 贴近逻辑核数
 
 ## functions
 def help_prompt():
     print("系统提示词，提示AI的身份，例如：你是一位诗人")
-    print("默认提示词：你是一位AI助手")
+    print(f"默认提示词：{default_sys_prompt}")
 
 
 def load_model():
@@ -74,7 +76,9 @@ def deal_response(context, full_response):
 
     # 解码模型的回复
     response = ''.join(response_parts)
-    expect_response = response
+    think_end = response.find("</think>")
+    expect_response = response[think_end + 9:] #<think>的部分显示但不加入对话记录
+    print(f"expect_resp:{expect_response}")
 
     # 打印耗时
     print(f"本轮对话耗时: {elapsed_time:.2f} 秒")
@@ -95,7 +99,7 @@ def chat():
 
         # 构建用户输入的 JSON 对象字符串并添加到历史记录
         user_msg = {
-            "role": "user",
+            "role": "f{user_role}",
             "content": user_input
         }
         user_msg_str = json.dumps(user_msg, ensure_ascii=False)
@@ -108,14 +112,14 @@ def chat():
             messages.append(msg)
 
         # 手动构建上下文(增加<think>触发强制思考
-        context = "\n".join([f"{msg['role']}: {msg['content']}" for msg in messages]) + f"\nassistant:{extra_prompt}"
+        context = "\n".join([f"{msg['role']}:{msg['content']}\n" for msg in messages]) + f"{AI_role}:<think>\n"
 
         # 调用处理回复的函数
         expect_response = deal_response(context, full_response)
 
         # 构建 AI 回复的 JSON 对象字符串并添加到历史记录
         ai_msg = {
-            "role": "assistant",
+            "role": f"{AI_role}",
             "content": expect_response
         }
         ai_msg_str = json.dumps(ai_msg, ensure_ascii=False)
