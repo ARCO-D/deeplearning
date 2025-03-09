@@ -4,24 +4,27 @@ import json
 
 ## global variable
 llm = None
-default_sys_prompt = "你是一位AI助手"
+default_sys_prompt = """
+你是一位AI助手。
+"""
 system_prompt = {
     "role": "system",
-    "content":{default_sys_prompt}
+    "content":default_sys_prompt
 }
 user_role = "user"
-AI_role = "assistant"
+AI_role = "奥罗拉"
 
 ## global settings
-# model_path = "/home/kirin7/hf/DeepSeek-R1-Distill-Llama-70B-GGUF/DeepSeek-R1-Distill-Llama-70B-Q4_K_M.gguf"
-model_path = "/home/kirin7/hf/DeepSeek-R1-Distill-Llama-70B-GGUF/DeepSeek-R1-Distill-Llama-70B-IQ4_XS.gguf"
-# model_path = "/home/kirin7/hf/DeepSeek-R1-Distill-Qwen-32B-GGUF/DeepSeek-R1-Distill-Qwen-32B-Q4_K_M.gguf"
-# model_path = "/home/kirin7/hf/DeepSeek-R1-Distill-Qwen-14B-GGUF/DeepSeek-R1-Distill-Qwen-14B-Q4_K_M.gguf"
-# model_path = "/media/arco/D292655192653ADD/DeepSeek-R1-Distill-Llama-8B-GGUF/DeepSeek-R1-Distill-Llama-8B-Q4_K_M.gguf"
-context_length = 10240 # 最大上下文长度
+# model_path = "/data/deepseek/DeepSeek-R1-Distill-Llama-70B-GGUF/DeepSeek-R1-Distill-Llama-70B-Q6_K/DeepSeek-R1-Distill-Llama-70B-Q6_K-00001-of-00002.gguf"
+# model_path = "/data/deepseek/DeepSeek-R1-Distill-Llama-70B-GGUF/DeepSeek-R1-Distill-Llama-70B-Q4_K_M.gguf"
+# model_path = "/data/deepseek/DeepSeek-R1-Distill-Llama-70B-GGUF/DeepSeek-R1-Distill-Llama-70B-IQ4_XS.gguf"
+model_path = "/data/deepseek/DeepSeek-R1-Distill-Qwen-32B-GGUF/DeepSeek-R1-Distill-Qwen-32B-Q4_K_M.gguf"
+# model_path = "/data/deepseek/DeepSeek-R1-Distill-Qwen-14B-GGUF/DeepSeek-R1-Distill-Qwen-14B-Q4_K_M.gguf"
+# model_path = "/data/deepseek/DeepSeek-R1-Distill-Llama-8B-GGUF/DeepSeek-R1-Distill-Llama-8B-Q4_K_M.gguf"
+context_length = 8192 # 最大上下文长度
 max_tokens = 1024 # AI一次最多生成的tokens
-gpu_layers = 42 # 没GPU就填0
-threads = 8 # 贴近逻辑核数
+gpu_layers = -1 # 没GPU就填0
+threads = 4 # 贴近逻辑核数
 
 ## functions
 def help_prompt():
@@ -63,7 +66,17 @@ def deal_response(context, full_response):
     # 生成模型的回复，使用流式生成
     print("AI:", end="")
     response_parts = []
-    for output in llm(context, max_tokens=max_tokens, temperature=0.6, top_p=0.95, stream=True):
+    generator = llm(
+            context,
+            max_tokens=max_tokens,
+            temperature=0.75,
+            top_p=0.95,
+            repeat_penalty=1.2,  # 新增关键参数
+            frequency_penalty=0.05,
+            presence_penalty=0.05,  # 抑制高频词
+            stream=True
+    )
+    for output in generator:
         token_text = output['choices'][0]['text']
         response_parts.append(token_text)
         if not full_response:
@@ -78,7 +91,7 @@ def deal_response(context, full_response):
     response = ''.join(response_parts)
     think_end = response.find("</think>")
     expect_response = response[think_end + 9:] #<think>的部分显示但不加入对话记录
-    print(f"expect_resp:{expect_response}")
+    # print(f"expect_resp:{expect_response}")
 
     # 打印耗时
     print(f"本轮对话耗时: {elapsed_time:.2f} 秒")
@@ -99,7 +112,7 @@ def chat():
 
         # 构建用户输入的 JSON 对象字符串并添加到历史记录
         user_msg = {
-            "role": "f{user_role}",
+            "role": f"{user_role}",
             "content": user_input
         }
         user_msg_str = json.dumps(user_msg, ensure_ascii=False)
@@ -113,6 +126,7 @@ def chat():
 
         # 手动构建上下文(增加<think>触发强制思考
         context = "\n".join([f"{msg['role']}:{msg['content']}\n" for msg in messages]) + f"{AI_role}:<think>\n"
+        # print(f"context={context}")
 
         # 调用处理回复的函数
         expect_response = deal_response(context, full_response)
