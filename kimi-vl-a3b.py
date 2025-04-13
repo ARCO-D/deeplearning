@@ -1,5 +1,6 @@
 from PIL import Image
 from transformers import AutoModelForCausalLM, AutoProcessor, TextIteratorStreamer, TextStreamer
+from transformers import BitsAndBytesConfig
 import torch
 import time
 
@@ -7,16 +8,21 @@ import time
 max_memory = {
     0 : "12GB",
     1 : "12GB",
-    "cpu": "48GB"
+    # "cpu": "48GB"
 }
 model_path = "/data2/models/vlm/Kimi-VL-A3B-Thinking"
 model = None
+quantization_config = BitsAndBytesConfig(
+    load_in_8bit=True,
+    llm_int8_threshold=6.0  # 调整阈值优化精度
+)
 
 # 1. 加载模型和处理器
 def load_model():
     global model
     model = AutoModelForCausalLM.from_pretrained(
         model_path,
+        quantization_config=quantization_config,
         torch_dtype=torch.float16,
         device_map="auto",
         max_memory=max_memory,
